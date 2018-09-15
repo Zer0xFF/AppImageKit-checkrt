@@ -10,11 +10,12 @@
  
      /* https://docs.python.org/2/using/cmdline.html#envvar-PYTHONHOME */
      SET_NEW_ENV(new_pythonhome, appdir_s, "PYTHONHOME=%s/usr/", appdir);
-@@ -171,8 +174,24 @@
+@@ -171,8 +174,27 @@
      old_env = getenv("PATH") ?: "";
      SET_NEW_ENV(new_path, appdir_s*5 + strlen(old_env), "PATH=%s/usr/bin/:%s/usr/sbin/:%s/usr/games/:%s/bin/:%s/sbin/:%s", appdir, appdir, appdir, appdir, appdir, old_env);
  
 +    int isUbuntu1404 = 0;
++    int isUbuntu1604 = 0;
 +    FILE *fp = popen("/usr/bin/lsb_release -rcs  2>/dev/null", "r");
 +    if (fp != NULL)
 +    {
@@ -24,18 +25,20 @@
 +        fgets(codename, sizeof(codename), fp);
 +        if (strcmp(version, "14.04\n") == 0 && strcmp(codename, "trusty\n") == 0)
 +           isUbuntu1404 = 1;
++        else if (strcmp(version, "16.04\n") == 0 && strcmp(codename, "xenial\n") == 0)
++           isUbuntu1604 = 1;
 +        
 +    }
      old_env = getenv("LD_LIBRARY_PATH") ?: "";
      SET_NEW_ENV(new_ld_library_path, appdir_s*10 + strlen(old_env), "LD_LIBRARY_PATH=%s/usr/lib/:%s/usr/lib/i386-linux-gnu/:%s/usr/lib/x86_64-linux-gnu/:%s/usr/lib32/:%s/usr/lib64/:%s/lib/:%s/lib/i386-linux-gnu/:%s/lib/x86_64-linux-gnu/:%s/lib32/:%s/lib64/:%s", appdir, appdir, appdir, appdir, appdir, appdir, appdir, appdir, appdir, appdir, old_env);
-+    if (isUbuntu1404)
++    if (isUbuntu1404 || isUbuntu1604)
 +    {
 +        SET_NEW_ENV(new_ld_library_path, strlen(optional_ld_library_path) + appdir_s*10 + strlen(old_env), "LD_LIBRARY_PATH=%s%s/usr/lib/:%s/usr/lib/i386-linux-gnu/:%s/usr/lib/x86_64-linux-gnu/:%s/usr/lib32/:%s/usr/lib64/:%s/lib/:%s/lib/i386-linux-gnu/:%s/lib/x86_64-linux-gnu/:%s/lib32/:%s/lib64/:%s", optional_ld_library_path, appdir, appdir, appdir, appdir, appdir, appdir, appdir, appdir, appdir, appdir, old_env);
 +    }
  
      old_env = getenv("PYTHONPATH") ?: "";
      SET_NEW_ENV(new_pythonpath, appdir_s + strlen(old_env), "PYTHONPATH=%s/usr/share/pyshared/:%s", appdir, old_env);
-@@ -201,6 +220,9 @@
+@@ -201,6 +223,9 @@
      if (ret == -1)
          die("Error executing '%s': %s\n", exe, strerror(error));
  
