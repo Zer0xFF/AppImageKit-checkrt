@@ -1,6 +1,42 @@
 --- a/AppRun.c
 +++ b/AppRun.c
-@@ -164,6 +164,9 @@
+@@ -51,6 +51,35 @@
+ 
+ #define LINE_SIZE 255
+ 
++struct distro {
++  const char* versionNumber;
++  const char* codename;
++} distro;
++
++#define distroNumber 17
++const struct distro distroWhitelist[distroNumber] ={
++    // Ubuntu
++    {"14.04", "trusty"},
++    {"14.10", "utopic"},
++    {"16.04", "xenial"},
++    // Linux Mint
++    {"18.3", "sylvia"},
++    {"18.2", "sonya"},
++    {"18.1", "serena"},
++    {"18", "sarah"},
++    {"17.3", "rosa"},
++    {"17.2", "rafaela"},
++    {"17.1", "rebecca"},
++    {"17", "qiana"},
++    // Debian
++    {"9.5", "stretch"},
++    {"9.4", "stretch"},
++    {"9.3", "stretch"},
++    {"9.2", "stretch"},
++    {"9.1", "stretch"},
++    {"9.0", "stretch"},
++};
++
+ int filter(const struct dirent *dir) {
+     char *p = (char*) &dir->d_name;
+     p = strrchr(p, '.');
+@@ -164,6 +193,9 @@
      char *old_env;
      size_t length;
      const char *format;
@@ -10,7 +46,7 @@
  
      /* https://docs.python.org/2/using/cmdline.html#envvar-PYTHONHOME */
      SET_NEW_ENV(new_pythonhome, appdir_s, "PYTHONHOME=%s/usr/", appdir);
-@@ -171,8 +174,28 @@
+@@ -171,8 +203,43 @@
      old_env = getenv("PATH") ?: "";
      SET_NEW_ENV(new_path, appdir_s*5 + strlen(old_env), "PATH=%s/usr/bin/:%s/usr/sbin/:%s/usr/games/:%s/bin/:%s/sbin/:%s", appdir, appdir, appdir, appdir, appdir, old_env);
  
@@ -22,13 +58,28 @@
 +        fgets(version, sizeof(version), fp);
 +        char codename[1035];
 +        fgets(codename, sizeof(codename), fp);
-+        if (strcmp(version, "14.04\n") == 0 && strcmp(codename, "trusty\n") == 0)
-+           doUseBuiltinSTDCPP = 1;
-+        else if (strcmp(version, "16.04\n") == 0 && strcmp(codename, "xenial\n") == 0)
-+           doUseBuiltinSTDCPP = 1;
-+        else if (strcmp(version, "18.3\n") == 0 && strcmp(codename, "sylvia\n") == 0)
-+           doUseBuiltinSTDCPP = 1;
-+        
++        for (int i = 0; i < distroNumber; i++)
++        {
++            char* versionString;
++            char* codenameString;
++            versionString = malloc(strlen(distroWhitelist[i].versionNumber) + 2);
++            codenameString = malloc(strlen(distroWhitelist[i].codename) + 2);
++            
++            if (versionString == NULL || codenameString == NULL)
++                die("Could not malloc versionString or codeNameString\n");
++            versionString[0] = '\0';
++            codenameString[0] = '\0';
++            strcat(versionString, distroWhitelist[i].versionNumber);
++            strcat(versionString, "\n");
++            strcat(codenameString, distroWhitelist[i].codename);
++            strcat(codenameString, "\n");
++            
++            if (strcasecmp(version, versionString) == 0 && strcasecmp(codename, codenameString) == 0)
++            {
++                doUseBuiltinSTDCPP = 1;
++                break;
++            }
++        }
 +    }
      old_env = getenv("LD_LIBRARY_PATH") ?: "";
      SET_NEW_ENV(new_ld_library_path, appdir_s*10 + strlen(old_env), "LD_LIBRARY_PATH=%s/usr/lib/:%s/usr/lib/i386-linux-gnu/:%s/usr/lib/x86_64-linux-gnu/:%s/usr/lib32/:%s/usr/lib64/:%s/lib/:%s/lib/i386-linux-gnu/:%s/lib/x86_64-linux-gnu/:%s/lib32/:%s/lib64/:%s", appdir, appdir, appdir, appdir, appdir, appdir, appdir, appdir, appdir, appdir, old_env);
@@ -39,7 +90,7 @@
  
      old_env = getenv("PYTHONPATH") ?: "";
      SET_NEW_ENV(new_pythonpath, appdir_s + strlen(old_env), "PYTHONPATH=%s/usr/share/pyshared/:%s", appdir, old_env);
-@@ -201,6 +224,9 @@
+@@ -201,6 +268,9 @@
      if (ret == -1)
          die("Error executing '%s': %s\n", exe, strerror(error));
  
