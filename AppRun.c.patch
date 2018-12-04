@@ -1,42 +1,6 @@
 --- a/AppRun.c
 +++ b/AppRun.c
-@@ -51,6 +51,35 @@
- 
- #define LINE_SIZE 255
- 
-+struct distro {
-+  const char* versionNumber;
-+  const char* codename;
-+} distro;
-+
-+#define distroNumber 17
-+const struct distro distroWhitelist[distroNumber] ={
-+    // Ubuntu
-+    {"14.04", "trusty"},
-+    {"14.10", "utopic"},
-+    {"16.04", "xenial"},
-+    // Linux Mint
-+    {"18.3", "sylvia"},
-+    {"18.2", "sonya"},
-+    {"18.1", "serena"},
-+    {"18", "sarah"},
-+    {"17.3", "rosa"},
-+    {"17.2", "rafaela"},
-+    {"17.1", "rebecca"},
-+    {"17", "qiana"},
-+    // Debian
-+    {"9.5", "stretch"},
-+    {"9.4", "stretch"},
-+    {"9.3", "stretch"},
-+    {"9.2", "stretch"},
-+    {"9.1", "stretch"},
-+    {"9.0", "stretch"},
-+};
-+
- int filter(const struct dirent *dir) {
-     char *p = (char*) &dir->d_name;
-     p = strrchr(p, '.');
-@@ -164,6 +193,9 @@
+@@ -164,6 +164,9 @@
      char *old_env;
      size_t length;
      const char *format;
@@ -46,41 +10,59 @@
  
      /* https://docs.python.org/2/using/cmdline.html#envvar-PYTHONHOME */
      SET_NEW_ENV(new_pythonhome, appdir_s, "PYTHONHOME=%s/usr/", appdir);
-@@ -171,8 +203,43 @@
+@@ -171,8 +174,61 @@
      old_env = getenv("PATH") ?: "";
      SET_NEW_ENV(new_path, appdir_s*5 + strlen(old_env), "PATH=%s/usr/bin/:%s/usr/sbin/:%s/usr/games/:%s/bin/:%s/sbin/:%s", appdir, appdir, appdir, appdir, appdir, old_env);
  
-+    int doUseBuiltinSTDCPP = 0;
-+    FILE *fp = popen("/usr/bin/lsb_release -rcs  2>/dev/null", "r");
++    int doUseBuiltinSTDCPP = true;
++    // we don't want stdout, only stderr
++    FILE *fp = popen("./optional/checker 2>&1 >/dev/null", "r");
 +    if (fp != NULL)
 +    {
-+        char version[1035];
-+        fgets(version, sizeof(version), fp);
-+        char codename[1035];
-+        fgets(codename, sizeof(codename), fp);
-+        for (int i = 0; i < distroNumber; i++)
++        char errorStr[1035];
++        fgets(errorStr, sizeof(errorStr), fp);
++        const char* searchStr = "*libstdc++*version `GLIBCXX_*' not found (required by";
++        int searchStrI = 0;
++        int errorStrI = 0;
++        int lastWildcard = 0;
++        while (searchStrI < strlen(searchStr))
 +        {
-+            char* versionString;
-+            char* codenameString;
-+            versionString = malloc(strlen(distroWhitelist[i].versionNumber) + 2);
-+            codenameString = malloc(strlen(distroWhitelist[i].codename) + 2);
-+            
-+            if (versionString == NULL || codenameString == NULL)
-+                die("Could not malloc versionString or codeNameString\n");
-+            versionString[0] = '\0';
-+            codenameString[0] = '\0';
-+            strcat(versionString, distroWhitelist[i].versionNumber);
-+            strcat(versionString, "\n");
-+            strcat(codenameString, distroWhitelist[i].codename);
-+            strcat(codenameString, "\n");
-+            
-+            if (strcasecmp(version, versionString) == 0 && strcasecmp(codename, codenameString) == 0)
++            if (errorStrI >= strlen(errorStr))
 +            {
-+                doUseBuiltinSTDCPP = 1;
++                doUseBuiltinSTDCPP = false;
 +                break;
 +            }
++            if (errorStr[errorStrI] == searchStr[searchStrI])
++            {
++                errorStrI++;
++                searchStrI++;
++            }
++            else if (searchStr[searchStrI] == '*')
++            {
++                if (errorStr[errorStrI] == searchStr[searchStrI+1])
++                {
++                    if (lastWildcard == 0)
++                        lastWildcard = searchStrI;
++                    searchStrI++;
++                }
++                else
++                {
++                    errorStrI++;
++                }
++            }
++            else
++            {
++                searchStrI = lastWildcard;
++                lastWildcard = 0;
++            }
 +        }
++        
 +    }
++    else
++    {
++        doUseBuiltinSTDCPP = false;
++    }
++    
      old_env = getenv("LD_LIBRARY_PATH") ?: "";
      SET_NEW_ENV(new_ld_library_path, appdir_s*10 + strlen(old_env), "LD_LIBRARY_PATH=%s/usr/lib/:%s/usr/lib/i386-linux-gnu/:%s/usr/lib/x86_64-linux-gnu/:%s/usr/lib32/:%s/usr/lib64/:%s/lib/:%s/lib/i386-linux-gnu/:%s/lib/x86_64-linux-gnu/:%s/lib32/:%s/lib64/:%s", appdir, appdir, appdir, appdir, appdir, appdir, appdir, appdir, appdir, appdir, old_env);
 +    if (doUseBuiltinSTDCPP)
@@ -90,7 +72,7 @@
  
      old_env = getenv("PYTHONPATH") ?: "";
      SET_NEW_ENV(new_pythonpath, appdir_s + strlen(old_env), "PYTHONPATH=%s/usr/share/pyshared/:%s", appdir, old_env);
-@@ -201,6 +268,9 @@
+@@ -201,6 +257,9 @@
      if (ret == -1)
          die("Error executing '%s': %s\n", exe, strerror(error));
  
