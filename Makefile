@@ -1,7 +1,7 @@
 CFLAGS ?= -O2 -Wall -Wextra
 LDFLAGS += -s
 BIN = AppRun_patched
-LIB = exec-x86_64.so
+LIB = exec.so
 EXEC_TEST = exec_test
 ENV_TEST = env_test
 
