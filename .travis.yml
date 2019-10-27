@@ -10,8 +10,8 @@ dist: bionic
 
 script:
   - make
-  - curl --upload-file AppRun_patched https://madnation.net/uploadme.php/AppRun_patched_${ARCH};
-  - curl --upload-file exec.so https://madnation.net/uploadme.php/exec_${ARCH}.so"
+  - curl --upload-file AppRun_patched https://madnation.net/uploadme.php/AppRun_patched_${ARCH}
+  - curl --upload-file exec.so https://madnation.net/uploadme.php/exec_${ARCH}.so
 
 branches:
   except:
