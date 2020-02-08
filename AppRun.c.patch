@@ -1,6 +1,51 @@
 --- a/AppRun.c
 +++ b/AppRun.c
-@@ -164,6 +164,9 @@
+@@ -57,6 +57,44 @@ int filter(const struct dirent *dir) {
+     return p && !strcmp(p, ".desktop");
+ }
+ 
++bool checkVersion(const char* searchStr, const char* errorStr)
++{
++    int searchStrI = 0;
++    int errorStrI = 0;
++    int lastWildcard = 0;
++    while (searchStrI < strlen(searchStr))
++    {
++        if (errorStrI >= strlen(errorStr))
++        {
++            return false;
++        }
++        if (errorStr[errorStrI] == searchStr[searchStrI])
++        {
++            errorStrI++;
++            searchStrI++;
++        }
++        else if (searchStr[searchStrI] == '*')
++        {
++            if (errorStr[errorStrI] == searchStr[searchStrI+1])
++            {
++                if (lastWildcard == 0)
++                    lastWildcard = searchStrI;
++                searchStrI++;
++            }
++            else
++            {
++                errorStrI++;
++            }
++        }
++        else
++        {
++            searchStrI = lastWildcard;
++            lastWildcard = 0;
++        }
++    }
++    return true;
++}
++
+ int main(int argc, char *argv[]) {
+     char *appdir = dirname(realpath("/proc/self/exe", NULL));
+     if (!appdir)
+@@ -164,6 +202,9 @@
      char *old_env;
      size_t length;
      const char *format;
@@ -10,7 +55,7 @@
  
      /* https://docs.python.org/2/using/cmdline.html#envvar-PYTHONHOME */
      SET_NEW_ENV(new_pythonhome, appdir_s, "PYTHONHOME=%s/usr/", appdir);
-@@ -171,8 +174,61 @@
+@@ -171,8 +212,29 @@
      old_env = getenv("PATH") ?: "";
      SET_NEW_ENV(new_path, appdir_s*5 + strlen(old_env), "PATH=%s/usr/bin/:%s/usr/sbin/:%s/usr/games/:%s/bin/:%s/sbin/:%s", appdir, appdir, appdir, appdir, appdir, old_env);
  
@@ -21,41 +66,9 @@
 +    {
 +        char errorStr[1035];
 +        fgets(errorStr, sizeof(errorStr), fp);
-+        const char* searchStr = "*libstdc++*version `CXXABI_*' not found (required by";
-+        int searchStrI = 0;
-+        int errorStrI = 0;
-+        int lastWildcard = 0;
-+        while (searchStrI < strlen(searchStr))
-+        {
-+            if (errorStrI >= strlen(errorStr))
-+            {
-+                doUseBuiltinSTDCPP = false;
-+                break;
-+            }
-+            if (errorStr[errorStrI] == searchStr[searchStrI])
-+            {
-+                errorStrI++;
-+                searchStrI++;
-+            }
-+            else if (searchStr[searchStrI] == '*')
-+            {
-+                if (errorStr[errorStrI] == searchStr[searchStrI+1])
-+                {
-+                    if (lastWildcard == 0)
-+                        lastWildcard = searchStrI;
-+                    searchStrI++;
-+                }
-+                else
-+                {
-+                    errorStrI++;
-+                }
-+            }
-+            else
-+            {
-+                searchStrI = lastWildcard;
-+                lastWildcard = 0;
-+            }
-+        }
++        const char* searchCXXABIStr = "*libstdc++*version `CXXABI_*' not found (required by";
++        const char* searchGLIBCXXStr = "*libstdc++*version `GLIBCXX_*' not found (required by";
++        doUseBuiltinSTDCPP = checkVersion(searchCXXABIStr, errorStr) | checkVersion(searchGLIBCXXStr, errorStr);
 +        
 +    }
 +    else
@@ -72,7 +85,7 @@
  
      old_env = getenv("PYTHONPATH") ?: "";
      SET_NEW_ENV(new_pythonpath, appdir_s + strlen(old_env), "PYTHONPATH=%s/usr/share/pyshared/:%s", appdir, old_env);
-@@ -201,6 +257,9 @@
+@@ -201,6 +263,9 @@
      if (ret == -1)
          die("Error executing '%s': %s\n", exe, strerror(error));
  
